@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="FarmOS Autopilot coordinates an agricultural fleet and recovers unfinished work after simulated breakdowns.">
+<title>FarmOS Autopilot — Field Operations</title>
+<link rel="stylesheet" href="style.css?v=operator">
+</head>
+<body>
+<main class="operations" aria-label="FarmOS field operations">
+  <header class="map-header">
+    <div class="map-title"><a class="brand" href="./" aria-label="FarmOS home"><span class="logo" data-icon="sprout"></span><span>FarmOS</span></a><span class="map-header-divider"></span><div><h1 id="map-title">Sonoran demo plot</h1><p id="viewer-caption">Simulated fleet · Marana, Arizona</p></div></div>
+    <div class="map-toolbar">
+      <div class="map-toggle" role="group" aria-label="Map view"><button id="satellite-tab" aria-pressed="true">Satellite</button><button id="guidance-tab" aria-pressed="false">AgOpenWeb</button></div>
+      <div class="map-toggle" id="camera-controls" role="group" aria-label="Satellite camera"><button id="camera-fleet" aria-pressed="true">Entire plot</button><button id="camera-tilt" aria-pressed="true" aria-label="Tilted 3D view">3D</button></div>
+      <button id="play" class="play"></button>
+      <button id="fail" class="break" data-icon="zap">Simulate breakdown</button>
+      <button id="reset" class="icon-btn" aria-label="Reset demo" title="Reset demo" data-icon="reset"></button>
+    </div>
+  </header>
+        <div class="map-frame">
+          <div id="satellite-view" class="satellite-view" aria-label="Live satellite map with clickable tractor markers">
+            <div class="plot-plane" id="plot-plane">
+              <img class="plot-image" src="sonoran-aerial.jpg" alt="" width="1720" height="930" draggable="false">
+              <svg viewBox="0 0 860 465" aria-hidden="true" class="plot-overlay">
+                <g transform="translate(37 62) scale(.89 .69)">
+                  <path d="M65 55H794V427H65Z" class="parcel-boundary"/>
+                  <g id="plot-zones"></g><path id="recovery-route" class="recovery-route"/><circle id="checkpoint" r="5" class="checkpoint" visibility="hidden"/>
+                </g>
+              </svg>
+              <div id="tractor-markers"></div>
+            </div>
+            <div class="map-compass" aria-hidden="true">↑<small>N</small></div>
+            <div class="map-credit"><a href="https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer" target="_blank" rel="noopener">USDA / USGS imagery</a></div>
+          </div>
+          <div id="guidance-view" hidden>
+            <iframe id="guidance" title="Official AgOpenWeb GPS guidance" allow="fullscreen" hidden></iframe>
+            <div id="viewer-setup" class="viewer-setup"><div><h3>Open the local guidance view</h3><p>Start AgOpenWeb and the FarmOS demo relay on this laptop for live GPS guidance.</p><a href="http://127.0.0.1:4173/">Open local demo ↗</a></div></div>
+          </div>
+          <div class="map-live"><i></i> <span id="map-status">SIM READY</span></div>
+          <div id="map-handoff" class="map-handoff" hidden></div>
+        </div>
+  <div class="map-bottom">
+    <div id="satellite-footer" class="map-fleet">
+      <span id="camera-caption" class="camera-caption">Follow a tractor</span>
+      <div id="tractor-views" class="tractor-views" aria-label="Follow a tractor"></div>
+    </div>
+    <footer class="guidance-footer" id="guidance-footer" hidden><span id="relay-status">Checking for AgOpenWeb</span><a id="viewer-link" href="http://127.0.0.1:5174/" target="_blank" rel="noopener" hidden>Open AgOpenWeb ↗</a></footer>
+  </div>
+
+  <section class="floating activity" aria-labelledby="activity-title">
+    <header class="widget-head"><div><h2 id="activity-title"><i></i> Activity</h2><p>Tractor updates and agent decisions</p></div><button class="widget-toggle" id="activity-toggle" aria-label="Collapse activity" aria-expanded="true" aria-controls="activity-body">−</button></header>
+    <div id="activity-body">
+      <div class="activity-filter"><label for="event-filter">Show</label><select id="event-filter"><option value="">Fleet activity</option><option value="agents">Agents only</option></select></div>
+      <div id="events" role="log" aria-live="off" aria-label="Live tractor and agent activity"></div>
+      <div id="activity-announcement" class="sr-only" role="status"></div>
+    </div>
+  </section>
+
+  <section class="floating operator" aria-labelledby="ask-title">
+    <header class="widget-head"><div><h2 id="ask-title">Ask FarmOS</h2><p id="ask-caption">Assign work or ask about the fleet</p></div><button class="widget-toggle" id="ask-toggle" aria-label="Collapse Ask FarmOS" aria-expanded="true" aria-controls="ask-body">−</button></header>
+    <div id="ask-body">
+      <details class="assignments" id="assign-details">
+        <summary>Assign tractors</summary>
+        <form id="assign-form">
+          <label>Tractor <select id="assign-tractor" required></select></label>
+          <label>Work zone <select id="assign-field" required></select></label>
+          <button class="form-action">Assign</button>
+          <button type="button" id="empty-plan" class="text-action">Start a blank plan</button>
+        </form>
+      </details>
+      <div class="ask-examples" aria-label="Example questions"><button data-example="Which fields still need work?">Work left</button><button data-example="Which tractors are available?">Available tractors</button><button data-example="How much fuel do the tractors have?">Fuel levels</button></div>
+      <div id="conversation" class="conversation" role="log" aria-label="Ask FarmOS conversation" hidden></div>
+      <form id="ask"><input id="command" aria-label="FarmOS command" autocomplete="off" placeholder="How long until North Field is done?" maxlength="500" enterkeyhint="send"><button type="button" id="mic" aria-label="Speak a command" title="Speak a command" data-icon="mic"></button><button class="send" aria-label="Send command" data-icon="arrowup"></button></form>
+      <p id="reply" role="status" class="reply"></p>
+    </div>
+  </section>
+</main>
+<script type="module" src="app.mjs?v=operator"></script>
+</body>
+</html>
