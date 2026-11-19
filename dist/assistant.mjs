@@ -1,5 +1,5 @@
-import {assignmentForecast,fields,job} from './engine.mjs?v=operator';
-import {tractorTelemetry} from './agents.mjs?v=operator';
+import {assignmentForecast,fields,job} from './engine.mjs?v=weather';
+import {tractorTelemetry} from './agents.mjs?v=weather';
 
 const compass={north:'A',east:'B',south:'C',west:'D'};
 const rounded=n=>Math.round(n*10)/10;

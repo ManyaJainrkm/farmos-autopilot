@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="FarmOS Autopilot coordinates an agricultural fleet and recovers unfinished work after simulated breakdowns.">
 <title>FarmOS Autopilot — Field Operations</title>
-<link rel="stylesheet" href="style.css?v=operator">
+<link rel="stylesheet" href="style.css?v=weather">
 </head>
 <body>
 <main class="operations" aria-label="FarmOS field operations">
@@ -14,6 +14,8 @@
       <div class="map-toggle" role="group" aria-label="Map view"><button id="satellite-tab" aria-pressed="true">Satellite</button><button id="guidance-tab" aria-pressed="false">AgOpenWeb</button></div>
       <div class="map-toggle" id="camera-controls" role="group" aria-label="Satellite camera"><button id="camera-fleet" aria-pressed="true">Entire plot</button><button id="camera-tilt" aria-pressed="true" aria-label="Tilted 3D view">3D</button></div>
       <button id="play" class="play"></button>
+      <div class="map-toggle speed-toggle" role="group" aria-label="Simulation speed"><button data-speed="1">1×</button><button data-speed="5">5×</button><button data-speed="10">10×</button><button data-speed="20">20×</button></div>
+      <button id="weather" class="weather" data-icon="rain" aria-pressed="false">Rain</button>
       <button id="fail" class="break" data-icon="zap">Simulate breakdown</button>
       <button id="reset" class="icon-btn" aria-label="Reset demo" title="Reset demo" data-icon="reset"></button>
     </div>
@@ -30,6 +32,7 @@
               </svg>
               <div id="tractor-markers"></div>
             </div>
+            <canvas id="rain" class="rain-layer" aria-hidden="true"></canvas>
             <div class="map-compass" aria-hidden="true">↑<small>N</small></div>
             <div class="map-credit"><a href="https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer" target="_blank" rel="noopener">USDA / USGS imagery</a></div>
           </div>
@@ -76,6 +79,6 @@
     </div>
   </section>
 </main>
-<script type="module" src="app.mjs?v=operator"></script>
+<script type="module" src="app.mjs?v=weather"></script>
 </body>
 </html>

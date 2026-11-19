@@ -1,6 +1,7 @@
-import {assign,fields,job,initial,tick,log,command} from './engine.mjs?v=operator';
-import {coordinateFailure,publishTelemetry,recallLastCheckpoint} from './agents.mjs?v=operator';
-import {answerFarmQuestion,farmContext,understand} from './assistant.mjs?v=operator';
+import {assign,fields,job,initial,tick,log,command} from './engine.mjs?v=weather';
+import {startRain} from './rain.mjs?v=weather';
+import {coordinateFailure,publishTelemetry,recallLastCheckpoint} from './agents.mjs?v=weather';
+import {answerFarmQuestion,farmContext,understand} from './assistant.mjs?v=weather';
 import {coordinates,fixSentences} from './agopengps.mjs?v=satellite';
 import {imagePoint,pointAlong,rowPoint,transitRoute} from './plot.mjs?v=satellite';
 
@@ -15,7 +16,8 @@ const paths={
  arrowup:'<path d="M12 20V4m-6 6 6-6 6 6"/>',download:'<path d="M12 3v12m-5-5 5 5 5-5M4 15v6h16v-6"/>',
  x:'<path d="m6 6 12 12M6 18 18 6"/>',play:'<path d="m8 5 12 7-12 7z"/>',pause:'<path d="M9 5v14m6-14v14"/>',
  shield:'<path d="m12 2 8 4v6c0 4-4 8-8 10-4-2-8-6-8-10V6l8-4Z"/><path d="m8 12 3 3 5-6"/>',
- trend:'<path d="M3 17l6-6 4 4 8-8m-6 0h6v6"/>',arrow:'<path d="M4 12h16m-6-6 6 6-6 6"/>'
+ trend:'<path d="M3 17l6-6 4 4 8-8m-6 0h6v6"/>',
+ rain:'<path d="M7 15a4 4 0 1 1 1-7.9A5.5 5.5 0 0 1 18.5 9 3 3 0 0 1 18 15H7Z"/><path d="m8 18-1 3m5-3-1 3m5-3-1 3"/>',arrow:'<path d="M4 12h16m-6-6 6 6-6 6"/>'
 };
 const icon = name => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
 const $ = id => document.getElementById(id);
@@ -29,7 +31,26 @@ let previousSubject={}, questionPending=false, questionAbort, assistantProvider=
 let state, lastTelemetry=0, displayedEvent, focusId='01', voiceDraft=false;
 let viewerReady=false, relayBusy=false, previousFix, modelEnabled=false, viewerUrl;
 let lastTick=performance.now();
+let speed=1;                       // playback multiplier: 1×, 5×, 10× or 20×
+const RAIN_MS=10000;               // rain is a 10-second visual effect; it does not change the simulation
+let rainUntil=0, rainTimer;
 let followedId=null, guidanceMode=false, tilted=true;
+// Each truck faces the way it is driving. Headings are unwrapped so a U-turn rotates the short way.
+const headings=new Map(), lastSpot=new Map();
+function updateHeading(id,x,y){
+  const prev=lastSpot.get(id);
+  lastSpot.set(id,{x,y});
+  if(!prev)return headings.get(id)??-90;
+  const dx=(x-prev.x)*8.6,dy=(y-prev.y)*4.65;   // percent of the plot -> image pixels
+  if(Math.hypot(dx,dy)<0.05)return headings.get(id)??-90;
+  const target=Math.atan2(dy,dx)*180/Math.PI, current=headings.get(id)??target;
+  const next=current+((target-current+540)%360-180);
+  headings.set(id,next);
+  return next;
+}
+// A low-poly pickup built from stacked slices so it has real height when the map is tilted.
+const slices=(cls,from,to)=>Array.from({length:to-from+1},(_,i)=>`<i class="${cls}" style="--z:${from+i}px"></i>`).join('');
+const truckModel=()=>`<span class="truck" aria-hidden="true"><i class="t-shadow"></i>${['rl','rr','fl','fr'].map(w=>`<span class="t-wheel ${w}">${slices('t-tyre',0,5)}</span>`).join('')}${slices('t-chassis',2,6)}<i class="t-deck" style="--z:7px"><i class="t-bed"></i><i class="t-hood"></i><i class="t-lamp l"></i><i class="t-lamp r"></i><i class="t-tail l"></i><i class="t-tail r"></i></i>${slices('t-cabin',8,12)}<i class="t-roof" style="--z:13px"><i class="t-glass"></i></i></span>`;
 const statusOf=t=>t.failed?'Offline':t.field?(t.eta>0?'En route':'Working'):t.finishedField?'Complete':'Standby';
 function standbyPoint(t) {
   const f=job(t.at);
@@ -67,7 +88,7 @@ function chooseMap(useGuidance){
 function createCameraControls(){
   const buttonList=state.tractors.map(t=>`<button class="tractor-card" id="camera-${t.id}" data-follow="${t.id}" aria-pressed="false"><span class="camera-preview"><i></i></span><span class="camera-info"><b>${t.name}</b><small></small></span></button>`);
   $('tractor-views').innerHTML=buttonList.join('');
-  $('tractor-markers').innerHTML=state.tractors.map(t=>`<button class="tractor-marker" id="marker-${t.id}" data-follow="${t.id}" aria-label="Follow ${t.name}">${icon('tractor')}<span>${t.name}</span></button>`).join('');
+  $('tractor-markers').innerHTML=state.tractors.map(t=>`<button class="tractor-marker" id="marker-${t.id}" data-follow="${t.id}" aria-label="Follow ${t.name}">${truckModel()}<span class="t-label"><i></i>${t.name}</span></button>`).join('');
   document.querySelectorAll('[data-follow]').forEach(button=>button.onclick=()=>chooseCamera(button.dataset.follow));
 }
 function renderSatellite(recovery,backup) {
@@ -79,6 +100,7 @@ function renderSatellite(recovery,backup) {
     const status=statusOf(t);
     const marker=$('marker-'+t.id),card=$('camera-'+t.id);
     marker.style.left=x+'%';marker.style.top=y+'%';
+    marker.style.setProperty('--heading',updateHeading(t.id,x,y)+'deg');
     const tone=status==='Offline'?'offline':t.id===recovery?.backup&&t.field?'backup':status==='Working'?'working':'standby';
     marker.dataset.tone=tone;card.dataset.tone=tone;
       card.querySelector('small').textContent=status;
@@ -125,11 +147,29 @@ function map() {
   if(state.pendingRecovery)handoff.textContent='Tractor offline · finding a backup';
   else if(r) {
     const phase=backup?.field ? (backup.eta?'en route':'working') : 'coverage complete';
-    const eta=backup?.field && backup.eta>0 ? ' · '+Math.ceil(backup.eta/simMinutesPerSecond)+'s to field' : '';
+    const eta=backup?.field && backup.eta>0 ? ' · '+Math.ceil(backup.eta/simMinutesPerSecond/speed)+'s to field' : '';
     const message=backup ? backup.name+' '+phase+eta : 'Recovery queued';
     if(handoff.textContent!==message)handoff.textContent=message;
   }
   $('map-status').textContent=state.running?'LIVE SIM':isComplete()?'SIM COMPLETE':state.min===0?'SIM READY':'SIM PAUSED';
+  renderRain();
+}
+function renderRain(){
+  const left=Math.ceil((rainUntil-performance.now())/1000), raining=left>0;
+  $('satellite-view').classList.toggle('raining',raining);
+  rain.set(raining&&!guidanceMode);
+  $('weather').setAttribute('aria-pressed',raining);
+  $('weather').lastChild.textContent=raining?'Rain · '+left+'s':'Rain';
+  if(!raining&&rainTimer){clearInterval(rainTimer);rainTimer=null;}
+}
+function setRain(on){
+  rainUntil=on?performance.now()+RAIN_MS:0;
+  clearInterval(rainTimer);
+  rainTimer=on?setInterval(renderRain,250):null;
+  renderRain();
+}
+function renderSpeed(){
+  document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',Number(b.dataset.speed)===speed));
 }
 const dotText={fail:'!',agent:'↗',memory:'M',dispatch:'↗',tractor:'↗',telemetry:'•',ok:'•'};
 function renderActivity(force=false){
@@ -211,6 +251,7 @@ function reset(blank=false){
   voiceDraft=false;
   previousFix=undefined;
   lastTelemetry=0;focusId='01';followedId=null;
+  headings.clear();lastSpot.clear();
   createCameraControls();
   publishTelemetry(state);
   render();
@@ -360,6 +401,10 @@ $('guidance-tab').onclick=()=>chooseMap(true);
 $('camera-fleet').onclick=()=>chooseCamera(null);
 $('camera-tilt').onclick=()=>{tilted=!tilted;render();};
 $('reset').onclick=()=>reset();
+const rain=startRain($('rain'));
+$('weather').onclick=()=>setRain(!$('satellite-view').classList.contains('raining'));
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);renderSpeed();render();});
+renderSpeed();
 $('play').onclick=()=>{lastTick=performance.now();state.running=!state.running;render();};
 $('fail').onclick=()=>{
   const tractor=pickBreakTarget();
@@ -468,7 +513,7 @@ setInterval(()=>{
   const elapsedSeconds=(now-lastTick)/1000;
   lastTick=now;
   if(!state.running)return;
-  tick(state,elapsedSeconds*simMinutesPerSecond);
+  tick(state,elapsedSeconds*simMinutesPerSecond*speed);
   if(state.min-lastTelemetry>=1.15||!state.running){lastTelemetry=state.min;publishTelemetry(state);}
   render();
 },tickMs);

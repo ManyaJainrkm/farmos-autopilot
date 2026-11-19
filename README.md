@@ -50,6 +50,16 @@ To make sure the demo couldn't fail on the day, Malaika and I kept a second, ind
 - Wrote the 3-minute demo script, split across four speakers, with our mascot **Old MacDonald**: Old MacDonald had a farm, E-I-E-I-O, *Every Implementation, Every Instinct, Orchestrated*. Now he has a fleet.
 - Prepared the judge Q&A, checked against the code
 
+### Added to this fork after the hackathon
+
+I rebuilt three touches from our live demo for the public version:
+
+- **3D trucks:** each tractor is a dark olive pickup that turns to face its direction of travel, including U-turns at row ends. It has real height in the tilted 3D view.
+- **Rain:** a 10-second rain effect that shows how the simulation looks in wet weather. It is visual only and does not change the plan.
+- **Speed control:** run the simulation at 1×, 5×, 10× or 20×.
+
+The code is in `dist/app.mjs`, `dist/rain.mjs` and `dist/style.css`.
+
 ---
 
 *Dhanush's original README follows.*

@@ -1,4 +1,4 @@
-import {job,log,plan,recover,reportFailure} from './engine.mjs?v=operator';
+import {job,log,plan,recover,reportFailure} from './engine.mjs?v=weather';
 
 const memoryKey='farmos-last-checkpoint';
 const rowText=point=>'row '+(Math.floor(point)+1)+', '+Math.round(point%1*100)+'% through';
