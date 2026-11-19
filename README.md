@@ -1,5 +1,59 @@
 # FarmOS Autopilot
 
+> **Portfolio fork.** This is Manya Jain's copy of [dhanush17-tech/farmos-autopilot](https://github.com/dhanush17-tech/farmos-autopilot), our team's entry for **AgX Arizona Track 2, "Run the Fleet"** (presented by American Tractor Company) at Hack Arizona, 15 November 2026. The FarmOS app code in this repository was written by Dhanush; the commit history is his. This section describes my part of the project.
+
+## The challenge
+
+Build a coordinator that assigns jobs to a small fleet of simulated autonomous tractors and re-plans when conditions change: take an operator's job list, assign compatible tractors (implements, fuel or battery, deadlines), show progress on a map, recover from a breakdown without conflicting assignments or lost work, and explain the new plan in plain language. Judged on a 3-minute live demo.
+
+## Team
+
+| Person | Role |
+| --- | --- |
+| Manya Jain | Concept and orchestration design; orchestration layer in the backup build; demo script and judge Q&A |
+| Dhanush | Built FarmOS Autopilot, this app |
+| Malaika Khan | Built FleetPhoenix, the backup build |
+| Bhoomi | Presentation |
+
+## My contributions (Manya Jain)
+
+### The idea: break the truck, watch the fleet recover
+
+I proposed the core of our demo: **let the judges break a tractor themselves** and watch the agents re-plan live, with no lost work and no tractor double-booked. I extended it to **"break the AI"**: deliberately make an agent fail and show the system still recovers safely.
+
+### The orchestration pipeline
+
+I wrote the AI orchestration plan the team built from:
+
+- **Specialist agents, one job each:** Intake (parses the job list, flags missing fields), a Tractor agent per tractor (bids for work), Dispatcher/Planner (awards jobs), Verifier (checks every rule), Monitor (raises breakdowns) and Communicator (explains plans), coordinated by an Orchestrator.
+- **Bid → award → verify → commit:** tractors bid in parallel, the Planner awards, a deterministic Verifier must pass the plan, and only then is it applied.
+- **Never stop the fleet:** per-agent timeouts, a retry, then a deterministic fallback planner when an agent fails.
+- **No lost work:** progress checkpoints, so a backup resumes exactly where the broken tractor stopped.
+- **Proof, not claims:** 10 chaos test scenarios (breakdowns, all tractors down, impossible deadlines, a hallucinated tractor, a missing deadline in the job list).
+- The API contract and screen brief for the dashboard.
+
+FarmOS's Tractor Agent → Memory Agent (row checkpoint) → Dispatch Agent handoff follows this design.
+
+### Backup build: FleetPhoenix, with Malaika
+
+To make sure the demo couldn't fail on the day, Malaika and I kept a second, independent implementation, [MalaikaKamranKhan/FleetPhoenix](https://github.com/MalaikaKamranKhan/FleetPhoenix). On top of Malaika's app I built the orchestration layer:
+
+- [PR #1](https://github.com/MalaikaKamranKhan/FleetPhoenix/pull/1): parallel tractor-agent bidding with timeouts; a Constraint Guard that blocks invalid plans; retry and a deterministic fallback planner with a circuit breaker; a **Break the AI** button; progress checkpoints the Guard enforces; a remembered battery-reserve rule; operator CSV job-list upload with an Intake agent that flags problems instead of guessing; plain-language plan explanations; a **live test board** that runs the scenarios on fresh simulated farms
+- [PR #3](https://github.com/MalaikaKamranKhan/FleetPhoenix/pull/3): auto-recovery (field repairs, returning signal, recharging), so a judge's sabotage can never stall the demo
+- [PR #4](https://github.com/MalaikaKamranKhan/FleetPhoenix/pull/4): a read-only feed of one tractor's simulated GPS (NMEA over UDP) into the official AgOpenWeb guidance app
+
+44 automated tests and 14 of 14 live scenarios pass.
+
+### Integration and demo
+
+- Set up the official open-source **AgOpenWeb** guidance app on the demo laptop and verified it receiving our simulated GPS (RTK Fixed)
+- Wrote the 3-minute demo script, split across four speakers, with our mascot **Old MacDonald**: Old MacDonald had a farm, E-I-E-I-O, *Every Implementation, Every Instinct, Orchestrated*. Now he has a fleet.
+- Prepared the judge Q&A, checked against the code
+
+---
+
+*Dhanush's original README follows.*
+
 FarmOS coordinates five simulated tractors in four work zones on one parcel near Marana, Arizona. The Satellite tab uses an overhead or perspective view of USDA/USGS aerial imagery. Each tractor has a follow camera. The AgOpenWeb tab embeds official guidance and consumes one selected synthetic GPS feed. The fleet view defaults to sending Atlas initially, then the backup after dispatch.
 
 ## Start the live demo locally
